@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 	<head>
-		<title>gyro</title>
+		<title>wheel</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
         <link type="text/css" rel="stylesheet" href="css/default.css">
@@ -11,14 +11,24 @@
 		<div id="container"></div>
 
         <div style="padding: 5px;position:absolute; left: 20px; top: 20px; background-color: #fcc;
-            opacity: 0.7;height: 100px; width: 400px; border-radius: 5px;
+            opacity: 0.7;height: 300px; width: 520px; border-radius: 5px;
             -moz-border-radius5px;-webkit-border-radius:5px;border: 1px solid #fff;">
 
             <h2 align='center' style="margin:0;padding:0;padding-bottom: 5px;font-size: 20px">
-            Gyroscope Kinematics</h2>
+            Wheel Kinematics</h2>
+            <p style="margin:0;padding:0;padding-bottom: 5px;">
+            It is convenient to introduce intermediate "fictitious" frames that each vary
+            from the previous frame by a simple rotation.</p>
+            <br></br>
+            <p style="margin:0;padding:0;padding-bottom: 5px;">
+            Frame B is rotated about +(az&gt; = bz&gt;) by an angle H,
+            frame C is rotated about -(bx&gt; = cx&gt;) by an angle L,
+            and frame D is rotated about +(cy&gt; = dy&gt;) by an angle theta.</p>
+
+            <br></br>
             <p style="margin:0;padding:0;padding-bottom: 5px;">Use the mouse to manipulate the camera.</p>
             <!--<p style="margin:0;padding:0;padding-bottom: 5px; padding-left: 15px;">LMB: rotate</p>-->
-            <p style="margin:0;padding:0;padding-bottom: 5px;">Use the control box to move each body. </p>
+            <p style="margin:0;padding:0;padding-bottom: 5px;">Use the control box to move each frame. </p>
 
         </div>
 
@@ -54,13 +64,15 @@
             var FAR = 100;
 
             var gui, variableConfig = {
-
-                theta: 0.3,
-                phi: 0.8,
-                thetaC: 0,
-                showFrameA: true,
+                x: 1.5,
+                y: 1.5,
+                H: 0.4,
+                L: 0.3,
+                theta: 0.8,
+                showTranslationFrame: false,
                 showFrameB: true,
                 showFrameC: true,
+                showFrameD: true,
                 Reset_Mechanism: false
 
             };
@@ -100,7 +112,7 @@
                 scene.add( camera );
 
                 controls = new THREE.TrackballControls( camera );
-                controls.target.set( 0, 0, 0 );
+                controls.target.set( 1, 1, 1 );
                 camera.lookAt(controls.target);
 
                 controls.rotateSpeed = 1.0;
@@ -120,9 +132,12 @@
 
 				light = new THREE.PointLight( 0xffffff, 1, 0 );
 				light.position.set( 10, 10, 10 );
-				scene.add( light );
+				light2 = new THREE.PointLight( 0xffffff, 1, 0 );
+				light2.position.set(-3, -3, 10 );
+        scene.add( light );
+        scene.add( light2 );
 
-                var axis_length = 2.5;
+                var axis_length = 3;
                 var axis_width = 0.05;
                 var axis_geometry = new THREE.CylinderGeometry( 1, 1, axis_length );
                 var matXAxis = new THREE.MeshBasicMaterial( { color :0xFF0000 } );
@@ -153,27 +168,23 @@
                 //bodyA_vis = new THREE.Mesh( bodyA_geometry, SHINY_RED );
                 //bodyA_vis.position.set(2.5, -0.75, 0);
 
-                bodyA_frame.position.set(0, 0, 0);
-                bodyA_frame.rotation.set(0,0,-variableConfig.theta);
-                //bodyA_frame.add(bodyA_vis);
-                //bodyA_frame.add(dae);
+                bodyA_frame.position.set(variableConfig.x, variableConfig.y, 0);
 
-                var bodyB_geometry = new THREE.CylinderGeometry( 0.1, 0.1, 3 );
-                bodyB_vis = new THREE.Mesh( bodyB_geometry, MAT_CHOCOLATE );
-                bodyB_vis.position.set(0, 0, 1.5);
-                bodyB_vis.rotation.set(Math.PI/2, 0, 0);
                 bodyB_frame.position.set(0, 0, 0);
-                bodyB_frame.add(bodyB_vis);
-                bodyB_frame.rotation.set(-variableConfig.phi, 0, 0);
+                bodyB_frame.rotation.set(0,0, variableConfig.H);
 
-                var bodyC_geometry = new THREE.CylinderGeometry( 0.75, 0.75, 0.2 );
-                bodyC_vis = new THREE.Mesh( bodyC_geometry, MAT_BLUE );
-                bodyC_vis.position.set(0, 0, 0);
-                bodyC_vis.rotation.set(Math.PI/2, 0, 0);
-                bodyC_frame.position.set( 0, 0, 1.5);
-                bodyC_frame.add(bodyC_vis);
-                bodyC_frame.rotation.set(0,0,variableConfig.thetaC);
+                bodyC_frame.position.set( 0, 0, 0);
+                bodyC_frame.rotation.set(-variableConfig.L, 0, 0);
 
+                var bodyD_geometry = new THREE.CylinderGeometry( 1, 1, 0.1 );
+                bodyD_vis = new THREE.Mesh( bodyD_geometry, MAT_BLUE );
+                bodyD_vis.position.set(0, 0, 0);
+                bodyD_vis.rotation.set(0,0, 0);//Math.PI/2);
+                bodyD_frame.position.set( 0, 0, 1);
+                bodyD_frame.rotation.set(0,variableConfig.theta, 0);
+                bodyD_frame.add(bodyD_vis);
+
+                bodyC_frame.add(bodyD_frame);
                 bodyB_frame.add(bodyC_frame);
                 bodyA_frame.add(bodyB_frame);
                 scene.add(bodyA_frame);
@@ -187,17 +198,25 @@
                     dae.scale.x = dae.scale.y = dae.scale.z = 5.0;
                     dae.updateMatrix();// Not sure if this is needed.
                     //scene.add(dae);
-
+                    var scale = (new THREE.Vector3(1,1,1)).multiplyScalar(1.2);
                     bodyA_frame.basis = collada.scene.clone();
-                    bodyA_frame.basis.scale.set(1,1,1);
+                    bodyA_frame.basis.scale.copy(scale);
                     bodyA_frame.add(bodyA_frame.basis);
                     bodyB_frame.basis = collada.scene.clone();
-                    bodyB_frame.basis.scale.set(1,1,1);
-                    bodyB_frame.basis.position.set(0,0,3);
+                    bodyB_frame.basis.scale.copy(scale);
                     bodyB_frame.add(bodyB_frame.basis);
                     bodyC_frame.basis = collada.scene.clone();
-                    bodyC_frame.basis.scale.set(1.2,1.2,1.2);
+                    bodyC_frame.basis.scale.copy(scale);
+                    bodyC_frame.basis.position.set(0,0,2.5);
                     bodyC_frame.add(bodyC_frame.basis);
+                    bodyD_frame.basis = collada.scene.clone();
+                    bodyD_frame.basis.scale.copy(scale);
+                    bodyD_frame.add(bodyD_frame.basis);
+
+                    showFrame(bodyA_frame.basis, variableConfig.showTranslationFrame);
+                    showFrame(bodyB_frame.basis, variableConfig.showFrameB);
+                    showFrame(bodyC_frame.basis, variableConfig.showFrameC);
+                    showFrame(bodyD_frame.basis, variableConfig.showFrameD);
                 } );
 
 
@@ -205,22 +224,26 @@
 				var planeTesselated = new THREE.PlaneGeometry( 10, 10, 10, 10 );
 				var matWire = new THREE.MeshBasicMaterial( { color: 0x110000, wireframe: true, wireframeLinewidth: 2 } );
 				var matSolid = new THREE.MeshBasicMaterial( { color: 0xE5EB39 } );
-				// matSolid.color.setHSV( 0.1, 0.75, 1 );
 
+                var floor_scale = (new THREE.Vector3(1,1,1)).multiplyScalar(axis_length/10);
+                var floor_position = (new THREE.Vector3(1,1,0)).multiplyScalar(axis_length/2);
+                //floor_scale = floor_scale.multiplyScalar(axis_length/10);
                 floor = new THREE.Mesh( planeTesselated, matSolid );
                 //floor.rotation.x = -Math.PI/2;
-                floor.scale.set( 0.5, 0.5, 0.5 );
+                floor.position.copy(floor_position);
+                floor.scale.copy(floor_scale);
                 scene.add( floor );
 
 				floor = new THREE.Mesh( planeTesselated, matWire );
 				//floor.rotation.x = -Math.PI/2;
-				floor.scale.set( 0.5, 0.5, 0.5 );
+                floor.position.copy(floor_position);
+				floor.scale.copy(floor_scale);
 				scene.add( floor );
 
 				renderer = new THREE.WebGLRenderer( { clearColor: 0xffffff, clearAlpha: 1, antialias: true } );
                 renderer.setSize( window.innerWidth, height);
                 //renderer.setSize( container.width, container.height );
-				renderer.setClearColorHex( 0xffffff, 1 );
+				renderer.setClearColor( 0xffffff, 1 );
 				renderer.sortObjects = false;
 //                renderer.domElement.style.position = 'absolute';
 //                renderer.domElement.style.top = '400px';
@@ -245,43 +268,61 @@
 
 
 
-                gui.add( variableConfig, 'theta', -Math.PI, Math.PI ).onChange( function() {
+                gui.add( variableConfig, 'x', 0, 3 ).onChange( function() {
                     controls.enabled = false;
-                    new TWEEN.Tween( bodyA_frame.rotation ).to( { z: -variableConfig.theta }, 500 )
+                    new TWEEN.Tween( bodyA_frame.position ).to( { x: variableConfig.x }, 500 )
                             .easing( TWEEN.Easing.Cubic.EaseOut ).start();
                 });
-                gui.add( variableConfig, 'showFrameA' ).onChange( function() {
+                gui.add( variableConfig, 'y', 0, 3 ).onChange( function() {
                     controls.enabled = false;
-                        for( var i in bodyA_frame.basis.children )
-                            bodyA_frame.basis.children[i].visible = variableConfig.showFrameA;
+                    new TWEEN.Tween( bodyA_frame.position ).to( { y: variableConfig.y }, 500 )
+                            .easing( TWEEN.Easing.Cubic.EaseOut ).start();
                 });
-                gui.add( variableConfig, 'phi', 0, Math.PI/2 ).onChange( function() {
+                gui.add( variableConfig, 'showTranslationFrame' ).onChange( function() {
                     controls.enabled = false;
-                    new TWEEN.Tween( bodyB_frame.rotation ).to( { x: -variableConfig.phi }, 500 )
+                    showFrame(bodyA_frame.basis, variableConfig.showTranslationFrame);
+                });
+                gui.add( variableConfig, 'H', -Math.PI/2, Math.PI/2 ).onChange( function() {
+                    controls.enabled = false;
+                    new TWEEN.Tween( bodyB_frame.rotation ).to( { z: variableConfig.H }, 500 )
                             .easing( TWEEN.Easing.Cubic.EaseOut ).start();
                 });
                 gui.add( variableConfig, 'showFrameB' ).onChange( function() {
                     controls.enabled = false;
-                    for( var i = 0; i < bodyB_frame.basis.children.length; i++)
-                        bodyB_frame.basis.children[i].visible = variableConfig.showFrameB;
+                    showFrame(bodyB_frame.basis, variableConfig.showFrameB);
                 });
-                gui.add( variableConfig, 'thetaC', 0, Math.PI*2 ).onChange( function() {
+                gui.add( variableConfig, 'L', -Math.PI/2, Math.PI/2 ).onChange( function() {
                     controls.enabled = false;
-                    new TWEEN.Tween( bodyC_frame.rotation ).to( { z: variableConfig.thetaC }, 400 )
+                    new TWEEN.Tween( bodyC_frame.rotation ).to( { x: -variableConfig.L }, 400 )
                             .easing( TWEEN.Easing.Cubic.EaseOut ).start();
                 });
                 gui.add( variableConfig, 'showFrameC' ).onChange( function() {
                     controls.enabled = false;
-                    for( var i = 0; i < bodyC_frame.basis.children.length; i++)
-                        bodyC_frame.basis.children[i].visible = variableConfig.showFrameC;
+                    showFrame(bodyC_frame.basis, variableConfig.showFrameC);
+                });
+                gui.add( variableConfig, 'theta', 0, Math.PI*2 ).onChange( function() {
+                    controls.enabled = false;
+                    new TWEEN.Tween( bodyD_frame.rotation ).to( { y: variableConfig.theta }, 400 )
+                            .easing( TWEEN.Easing.Cubic.EaseOut ).start();
+                });
+                gui.add( variableConfig, 'showFrameD' ).onChange( function() {
+                    controls.enabled = false;
+                    showFrame(bodyD_frame.basis, variableConfig.showFrameD);
                 });
                 gui.add( variableConfig, 'Reset_Mechanism' ).onChange( function() {
                     controls.enabled = false;
-                    bodyA_frame.rotation.z = variableConfig.theta = 0;
-                    bodyB_frame.rotation.x = variableConfig.phi = 0;
-                    bodyC_frame.rotation.z = variableConfig.thetaC = 0;
+                    bodyA_frame.position.x = variableConfig.x = 1;
+                    bodyA_frame.position.y = variableConfig.y = 1;
+                    bodyB_frame.rotation.z = variableConfig.H = 0;
+                    bodyC_frame.rotation.x = variableConfig.L = 0;
+                    bodyC_frame.rotation.y = variableConfig.theta = 0;
                     variableConfig.Reset_Mechanism = false;
                 });
+
+                function showFrame(object, show) {
+                    for( var i = 0; i < object.children.length; i++)
+                        object.children[i].visible = show;
+                }
 
                 //gui.close();
 

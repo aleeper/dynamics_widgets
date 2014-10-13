@@ -21,7 +21,9 @@
 
         </div>
 
-        <script src="js/three/Three.r48.js"></script>
+        <script src="js/three/Three.r68.js"></script>
+        <script src="js/three/TrackballControls.js"></script>
+        <script src="js/three/ColladaLoader.js"></script>
         <script src="js/Detector.js"></script>
         <script src="js/Stats.js"></script>
         <script src='js/DAT.GUI.min.js'></script>
@@ -49,14 +51,14 @@
 
             var gui, variableConfig = {
 
-                thetaA: 0,
+                qA: 0,
                 thetaB: 0,
                 thetaC: 0,
-                thetaD: 2,
+                x: 2,
                 showFrameA: true,
                 showFrameB: true,
                 showFrameC: true,
-                showFrameD: true,
+                showFrameD: false,
                 Reset_Mechanism: false
 
             };
@@ -179,7 +181,7 @@
                 bodyC_frame = new THREE.Object3D();
                 bodyD_frame = new THREE.Object3D();
 
-                var bodyA_geometry = new THREE.CubeGeometry( 5, 1.5, 2);
+                var bodyA_geometry = new THREE.BoxGeometry( 5, 1.5, 2);
                 bodyA_vis = new THREE.Mesh( bodyA_geometry, SHINY_RED );
                 bodyA_vis.position.set(2.5, -0.75, 0);
                 bodyA_frame.position.set(0, 1.5, 0);
@@ -192,16 +194,16 @@
                 bodyB_frame.position.set(2, 0.5, 0);
                 bodyB_frame.add(bodyB_vis);
 
-                var bodyC_geometry = new THREE.CubeGeometry( 5, 0.05, 1 );
+                var bodyC_geometry = new THREE.BoxGeometry( 5, 0.05, 1 );
                 bodyC_vis = new THREE.Mesh( bodyC_geometry, MAT_BLUE );
-                bodyC_vis.position.set(2.5, 0.1, 0);
+                bodyC_vis.position.set(2.5, 0.0, 0);
                 bodyC_frame.position.set( 0, 0, 0);
                 bodyC_frame.add(bodyC_vis);
 
-                var bodyD_geometry = new THREE.SphereGeometry( 0.3, 8, 8);
+                var bodyD_geometry = new THREE.SphereGeometry( 0.2, 8, 8);
                 bodyD_vis = new THREE.Mesh( bodyD_geometry, SHINY_BLACK );
-                bodyD_vis.position.set( 0, 0, 0);
-                bodyD_frame.position.set( variableConfig.thetaD, 0, 0);
+                bodyD_vis.position.set( 0, 0.155555, 0);
+                bodyD_frame.position.set( variableConfig.x, 0, 0);
                 bodyD_frame.add(bodyD_vis);
 
                 bodyC_frame.add(bodyD_frame);
@@ -214,31 +216,33 @@
                 loader.options.convertUpAxis = false;
                 loader.load( 'meshes/basis.dae', function colladaReady( collada )
                 {
-                    dae = THREE.SceneUtils.cloneObject(collada.scene);
+                    dae = collada.scene.clone();
                     dae.scale.x = dae.scale.y = dae.scale.z = 5.0;
                     dae.updateMatrix();// Not sure if this is needed.
                     //scene.add(dae);
 
-                    bodyA_frame.basis = THREE.SceneUtils.cloneObject(collada.scene);
+                    bodyA_frame.basis = collada.scene.clone();
                     bodyA_frame.basis.scale.set(2,2,2);
                     bodyA_frame.add(bodyA_frame.basis);
-                    bodyB_frame.basis = THREE.SceneUtils.cloneObject(collada.scene);
+                    bodyB_frame.basis = collada.scene.clone();
                     bodyB_frame.basis.scale.set(2,2,2);
                     bodyB_frame.add(bodyB_frame.basis);
-                    bodyC_frame.basis = THREE.SceneUtils.cloneObject(collada.scene);
+                    bodyC_frame.basis = collada.scene.clone();
                     bodyC_frame.basis.scale.set(2,2,2);
                     bodyC_frame.add(bodyC_frame.basis);
-                    bodyD_frame.basis = THREE.SceneUtils.cloneObject(collada.scene);
+                    bodyD_frame.basis = collada.scene.clone();
                     bodyD_frame.basis.scale.set(2,2,2);
                     bodyD_frame.add(bodyD_frame.basis);
+
+                    for( var i = 0; i < bodyD_frame.basis.children.length; i++)
+                      bodyD_frame.basis.children[i].visible = variableConfig.showFrameD;
                 } );
 
 
 				//var planeSimple = new THREE.PlaneGeometry( 200, 300 );
 				var planeTesselated = new THREE.PlaneGeometry( 10, 10, 10, 10 );
-				var matWire = new THREE.MeshBasicMaterial( { color :0x110000, wireframe: true, wireframeLinewidth: 2 } );
-				var matSolid = new THREE.MeshBasicMaterial( { color :0x330000 } );
-				matSolid.color.setHSV( 0.1, 0.75, 1 );
+				var matWire = new THREE.MeshBasicMaterial( { color: 0x110000, wireframe: true, wireframeLinewidth: 2 } );
+				var matSolid = new THREE.MeshBasicMaterial( { color: 0xE5EB39 } );
 
                 floor = new THREE.Mesh( planeTesselated, matSolid );
                 floor.rotation.x = -Math.PI/2;
@@ -253,7 +257,7 @@
 				renderer = new THREE.WebGLRenderer( { clearColor: 0xffffff, clearAlpha: 1, antialias: true } );
                 renderer.setSize( window.innerWidth, height);
                 //renderer.setSize( container.width, container.height );
-				renderer.setClearColorHex( 0xffffff, 1 );
+				renderer.setClearColor( 0xffffff, 1 );
 				renderer.sortObjects = false;
 //                renderer.domElement.style.position = 'absolute';
 //                renderer.domElement.style.top = '400px';
@@ -277,9 +281,9 @@
 //                gui.domElement.style.left = '0px';
 
 
-                gui.add( variableConfig, 'thetaA', -Math.PI, Math.PI ).onChange( function() {
+                gui.add( variableConfig, 'qA', -Math.PI, Math.PI ).onChange( function() {
                     controls.enabled = false;
-                    new TWEEN.Tween( bodyA_frame.position ).to( { x: variableConfig.thetaA }, 400 )
+                    new TWEEN.Tween( bodyA_frame.position ).to( { x: variableConfig.qA }, 400 )
                             .easing( TWEEN.Easing.Cubic.EaseOut ).start();
                 });
                 gui.add( variableConfig, 'showFrameA' ).onChange( function() {
@@ -308,22 +312,22 @@
                     for( var i = 0; i < bodyC_frame.basis.children.length; i++)
                         bodyC_frame.basis.children[i].visible = variableConfig.showFrameC;
                 });
-                gui.add( variableConfig, 'thetaD', 1, 5 ).onChange( function() {
+                gui.add( variableConfig, 'x', 0, 5 ).onChange( function() {
                     controls.enabled = false;
-                    new TWEEN.Tween( bodyD_frame.position ).to( { x: variableConfig.thetaD }, 400 )
+                    new TWEEN.Tween( bodyD_frame.position ).to( { x: variableConfig.x }, 400 )
                             .easing( TWEEN.Easing.Cubic.EaseOut ).start();
                 });
-                gui.add( variableConfig, 'showFrameD' ).onChange( function() {
-                    controls.enabled = false;
-                    for( var i = 0; i < bodyD_frame.basis.children.length; i++)
-                        bodyD_frame.basis.children[i].visible = variableConfig.showFrameD;
-                });
+                //gui.add( variableConfig, 'showFrameD' ).onChange( function() {
+                //    controls.enabled = false;
+                //    for( var i = 0; i < bodyD_frame.basis.children.length; i++)
+                //        bodyD_frame.basis.children[i].visible = variableConfig.showFrameD;
+                //});
                 gui.add( variableConfig, 'Reset_Mechanism' ).onChange( function() {
                     controls.enabled = false;
-                    bodyA_frame.position.x = variableConfig.thetaA = 0;
+                    bodyA_frame.position.x = variableConfig.qA = 0;
                     bodyB_frame.rotation.y = variableConfig.thetaB = 0;
                     bodyC_frame.rotation.z = variableConfig.thetaC = 0;
-                    bodyD_frame.position.x = variableConfig.thetaD = 2.0;
+                    bodyD_frame.position.x = variableConfig.x = 2.0;
                     variableConfig.Reset_Mechanism = false;
                 });
 
