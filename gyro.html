@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>gyro</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link type="text/css" rel="stylesheet" href="css/default.css">
+	</head>
+	<body>
+
+		<div id="container"></div>
+
+        <div style="padding: 5px;position:absolute; left: 20px; top: 20px; background-color: #fcc;
+            opacity: 0.7;height: 100px; width: 400px; border-radius: 5px;
+            -moz-border-radius5px;-webkit-border-radius:5px;border: 1px solid #fff;">
+
+            <h2 align='center' style="margin:0;padding:0;padding-bottom: 5px;font-size: 20px">
+            Gyroscope Kinematics</h2>
+            <p style="margin:0;padding:0;padding-bottom: 5px;">Use the mouse to manipulate the camera.</p>
+            <!--<p style="margin:0;padding:0;padding-bottom: 5px; padding-left: 15px;">LMB: rotate</p>-->
+            <p style="margin:0;padding:0;padding-bottom: 5px;">Use the control box to move each body. </p>
+
+        </div>
+
+        <script src="js/three/Three.r68.js"></script>
+        <script src="js/three/TrackballControls.js"></script>
+        <script src="js/three/ColladaLoader.js"></script>
+
+        <script src="js/Detector.js"></script>
+        <script src="js/Stats.js"></script>
+        <script src='js/DAT.GUI.min.js'></script>
+        <script src="js/Tween.js"></script>
+        <script src='js/Colors.js'></script>
+
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			window.onload = init;
+
+			var container, stats;
+
+			var camera, scene, renderer;
+
+			var mesh, light;
+
+			var mouseX = 0, mouseY = 0;
+
+            var global_up_vector = new THREE.Vector3(0,0,1);
+
+            var MARGIN = 0;
+            var SCREEN_WIDTH = window.innerWidth;
+            var SCREEN_HEIGHT = window.innerHeight - 2 * MARGIN;
+            var FAR = 100;
+
+            var gui, variableConfig = {
+
+                theta: 0.3,
+                phi: 0.8,
+                thetaC: 0,
+                showFrameA: true,
+                showFrameB: true,
+                showFrameC: true,
+                Reset_Mechanism: false
+
+            };
+//			var windowHalfX = window.innerWidth / 2;
+//			var windowHalfY = window.innerHeight / 2;
+
+			var height = window.innerHeight;
+
+			var animations = [];
+			var buffalos = [];
+			var offset = [];
+            var sphere_vector, projection_x, projection_y, projection_z;
+            var target_sphere;
+            var axes = [];
+
+			var floor, dz = 0, dstep = -10, playback = false;
+
+			var clock = new THREE.Clock();
+
+            var bodyA_frame, bodyB_frame, bodyC_frame, bodyD_frame;
+            var bodyA_vis, bodyB_vis, bodyC_vis, bodyD_vis;
+
+			function init() {
+
+				container = document.getElementById( 'container' );
+
+                // SCENE
+                // FOG
+                scene = new THREE.Scene();
+//                scene.fog = new THREE.FogExp2( 0xffffff, 0.05 );
+//                scene.fog.color.setHSV( 0.1, 0.10, 1 );
+
+                // CAMERA
+                camera = new THREE.PerspectiveCamera( 30, SCREEN_WIDTH / SCREEN_HEIGHT, 1, FAR );
+                camera.position.set( 10, 3, 6 );
+                camera.up.copy(global_up_vector);
+                scene.add( camera );
+
+                controls = new THREE.TrackballControls( camera );
+                controls.target.set( 0, 0, 0 );
+                camera.lookAt(controls.target);
+
+                controls.rotateSpeed = 1.0;
+                controls.zoomSpeed = 1.2;
+                controls.noPan = false;
+                controls.minDistance = 1;
+                controls.maxDistance = 15;
+
+                controls.staticMoving = true;
+                controls.dynamicDampingFactor = 0.15;
+
+                controls.keys = [ 65, 83, 68 ];
+
+				//camera = new THREE.PerspectiveCamera( 25, window.innerWidth / height, 1, 10000 );
+				//camera.position.set( 0, 10,  30 );
+
+
+				light = new THREE.PointLight( 0xffffff, 1, 0 );
+				light.position.set( 10, 10, 10 );
+				scene.add( light );
+
+                var axis_length = 2.5;
+                var axis_width = 0.05;
+                var axis_geometry = new THREE.CylinderGeometry( 1, 1, axis_length );
+                var matXAxis = new THREE.MeshBasicMaterial( { color :0xFF0000 } );
+                var matYAxis = new THREE.MeshBasicMaterial( { color :0x00FF00 } );
+                var matZAxis = new THREE.MeshBasicMaterial( { color :0x0000FF } );
+                axes[0] = new THREE.Mesh( axis_geometry, matXAxis );
+                axes[0].scale.set(axis_width, 1.0, axis_width);
+                axes[0].position.x = axis_length/2;
+                axes[0].rotation.z = -Math.PI/2;
+                scene.add(axes[0]);
+                axes[1] = new THREE.Mesh( axis_geometry, matYAxis );
+                axes[1].scale.set(axis_width, 1.0, axis_width);
+                axes[1].position.y = axis_length/2;
+                scene.add(axes[1]);
+                axes[2] = new THREE.Mesh( axis_geometry, matZAxis );
+                axes[2].scale.set(axis_width, 1.0, axis_width);
+                axes[2].position.z = axis_length/2;
+                axes[2].rotation.x = -Math.PI/2;
+                scene.add(axes[2]);
+
+
+                bodyA_frame = new THREE.Object3D();
+                bodyB_frame = new THREE.Object3D();
+                bodyC_frame = new THREE.Object3D();
+                bodyD_frame = new THREE.Object3D();
+
+                //var bodyA_geometry = new THREE.CubeGeometry( 5, 1.5, 2);
+                //bodyA_vis = new THREE.Mesh( bodyA_geometry, SHINY_RED );
+                //bodyA_vis.position.set(2.5, -0.75, 0);
+
+                bodyA_frame.position.set(0, 0, 0);
+                bodyA_frame.rotation.set(0,0,-variableConfig.theta);
+                //bodyA_frame.add(bodyA_vis);
+                //bodyA_frame.add(dae);
+
+                var bodyB_geometry = new THREE.CylinderGeometry( 0.1, 0.1, 3 );
+                bodyB_vis = new THREE.Mesh( bodyB_geometry, MAT_CHOCOLATE );
+                bodyB_vis.position.set(0, 0, 1.5);
+                bodyB_vis.rotation.set(Math.PI/2, 0, 0);
+                bodyB_frame.position.set(0, 0, 0);
+                bodyB_frame.add(bodyB_vis);
+                bodyB_frame.rotation.set(-variableConfig.phi, 0, 0);
+
+                var bodyC_geometry = new THREE.CylinderGeometry( 0.75, 0.75, 0.2 );
+                bodyC_vis = new THREE.Mesh( bodyC_geometry, MAT_BLUE );
+                bodyC_vis.position.set(0, 0, 0);
+                bodyC_vis.rotation.set(Math.PI/2, 0, 0);
+                bodyC_frame.position.set( 0, 0, 1.5);
+                bodyC_frame.add(bodyC_vis);
+                bodyC_frame.rotation.set(0,0,variableConfig.thetaC);
+
+                bodyB_frame.add(bodyC_frame);
+                bodyA_frame.add(bodyB_frame);
+                scene.add(bodyA_frame);
+
+                var dae; //, skin;
+                var loader = new THREE.ColladaLoader();
+                loader.options.convertUpAxis = false;
+                loader.load( 'meshes/basis.dae', function colladaReady( collada )
+                {
+                    dae = collada.scene.clone();
+                    dae.scale.x = dae.scale.y = dae.scale.z = 5.0;
+                    dae.updateMatrix();// Not sure if this is needed.
+                    //scene.add(dae);
+
+                    bodyA_frame.basis = collada.scene.clone();
+                    bodyA_frame.basis.scale.set(1,1,1);
+                    bodyA_frame.add(bodyA_frame.basis);
+                    bodyB_frame.basis = collada.scene.clone();
+                    bodyB_frame.basis.scale.set(1,1,1);
+                    bodyB_frame.basis.position.set(0,0,3);
+                    bodyB_frame.add(bodyB_frame.basis);
+                    bodyC_frame.basis = collada.scene.clone();
+                    bodyC_frame.basis.scale.set(1.2,1.2,1.2);
+                    bodyC_frame.add(bodyC_frame.basis);
+                } );
+
+
+				//var planeSimple = new THREE.PlaneGeometry( 200, 300 );
+				var planeTesselated = new THREE.PlaneGeometry( 10, 10, 10, 10 );
+				var matWire = new THREE.MeshBasicMaterial( { color :0x110000, wireframe: true, wireframeLinewidth: 2 } );
+				var matSolid = new THREE.MeshBasicMaterial( { color :0xE5EB39 } );
+				// matSolid.color.setHSV( 0.1, 0.75, 1 );
+
+                floor = new THREE.Mesh( planeTesselated, matSolid );
+                //floor.rotation.x = -Math.PI/2;
+                floor.scale.set( 0.5, 0.5, 0.5 );
+                scene.add( floor );
+
+				floor = new THREE.Mesh( planeTesselated, matWire );
+				//floor.rotation.x = -Math.PI/2;
+				floor.scale.set( 0.5, 0.5, 0.5 );
+				scene.add( floor );
+
+				renderer = new THREE.WebGLRenderer( { clearColor: 0xffffff, clearAlpha: 1, antialias: true } );
+                renderer.setSize( window.innerWidth, height);
+                //renderer.setSize( container.width, container.height );
+				renderer.setClearColorHex( 0xffffff, 1 );
+				renderer.sortObjects = false;
+//                renderer.domElement.style.position = 'absolute';
+//                renderer.domElement.style.top = '400px';
+
+				container.appendChild( renderer.domElement );
+
+//				stats = new Stats();
+//				stats.domElement.style.position = 'absolute';
+//				stats.domElement.style.top = '0px'; //window.innerHeight;
+//				container.appendChild( stats.domElement );
+
+                window.addEventListener( 'resize', onWindowResize, false );
+                document.addEventListener( 'keydown', onKeyDown, false );
+                document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+                document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+
+                // GUI
+
+                gui = new DAT.GUI( );
+//                gui.domElement.style.position = 'absolute';
+//                gui.domElement.style.left = '0px';
+
+
+
+                gui.add( variableConfig, 'theta', -Math.PI, Math.PI ).onChange( function() {
+                    controls.enabled = false;
+                    new TWEEN.Tween( bodyA_frame.rotation ).to( { z: -variableConfig.theta }, 500 )
+                            .easing( TWEEN.Easing.Cubic.EaseOut ).start();
+                });
+                gui.add( variableConfig, 'showFrameA' ).onChange( function() {
+                    controls.enabled = false;
+                        for( var i in bodyA_frame.basis.children )
+                            bodyA_frame.basis.children[i].visible = variableConfig.showFrameA;
+                });
+                gui.add( variableConfig, 'phi', 0, Math.PI/2 ).onChange( function() {
+                    controls.enabled = false;
+                    new TWEEN.Tween( bodyB_frame.rotation ).to( { x: -variableConfig.phi }, 500 )
+                            .easing( TWEEN.Easing.Cubic.EaseOut ).start();
+                });
+                gui.add( variableConfig, 'showFrameB' ).onChange( function() {
+                    controls.enabled = false;
+                    for( var i = 0; i < bodyB_frame.basis.children.length; i++)
+                        bodyB_frame.basis.children[i].visible = variableConfig.showFrameB;
+                });
+                gui.add( variableConfig, 'thetaC', 0, Math.PI*2 ).onChange( function() {
+                    controls.enabled = false;
+                    new TWEEN.Tween( bodyC_frame.rotation ).to( { z: variableConfig.thetaC }, 400 )
+                            .easing( TWEEN.Easing.Cubic.EaseOut ).start();
+                });
+                gui.add( variableConfig, 'showFrameC' ).onChange( function() {
+                    controls.enabled = false;
+                    for( var i = 0; i < bodyC_frame.basis.children.length; i++)
+                        bodyC_frame.basis.children[i].visible = variableConfig.showFrameC;
+                });
+                gui.add( variableConfig, 'Reset_Mechanism' ).onChange( function() {
+                    controls.enabled = false;
+                    bodyA_frame.rotation.z = variableConfig.theta = 0;
+                    bodyB_frame.rotation.x = variableConfig.phi = 0;
+                    bodyC_frame.rotation.z = variableConfig.thetaC = 0;
+                    variableConfig.Reset_Mechanism = false;
+                });
+
+                //gui.close();
+
+				loop();
+
+			}
+
+            function onWindowResize( event ) {
+
+                SCREEN_WIDTH = window.innerWidth;
+                SCREEN_HEIGHT = window.innerHeight - 2 * MARGIN;
+
+                renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
+
+                camera.aspect = SCREEN_WIDTH / SCREEN_HEIGHT;
+                camera.updateProjectionMatrix();
+
+            }
+
+            function onDocumentMouseMove( event ) {
+
+                //mouseX = ( event.clientX - windowHalfX );
+                //mouseY = ( event.clientY - windowHalfY );
+
+                controls.enabled = true;
+            }
+            function onDocumentMouseUp( event ) {
+
+                //mouseX = ( event.clientX - windowHalfX );
+                //mouseY = ( event.clientY - windowHalfY );
+
+                camera.up.copy(global_up_vector);
+            }
+
+            function onKeyDown ( event ) {
+
+                switch( event.keyCode ) {
+
+                    case 78:
+
+                        break;
+
+                }
+
+            }
+
+			function loop() {
+
+				requestAnimationFrame( loop, renderer.domElement );
+
+				var delta = clock.getDelta();
+                var elapsed = clock.getElapsedTime();
+
+				//THREE.AnimationHandler.update( delta );
+                TWEEN.update();
+//
+//                if(!controls.enabled)
+//                {
+//                    camera.up.set(0, 1, 0);
+//                }
+                var y = 0;
+                if(bodyB_frame.basis)
+                    y = -bodyB_frame.basis.position.z*Math.sin(bodyB_frame.rotation.x);
+                if(bodyA_frame.basis)
+                    bodyA_frame.basis.position.set( 0,y,0);
+                controls.update();
+                //camera.up.set(0, 1, 0);
+                //camera.lookAt(controls.target);
+
+				renderer.render( scene, camera );
+
+				//stats.update();
+
+			}
+
+		</script>
+
+	</body>
+</html>
+
