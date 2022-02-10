@@ -28,10 +28,15 @@
 
         </div>
 
-        <script src="js/three/Three.r48.js"></script>
+        <script src="js/three/Three.r68.js"></script>
+        <script src="js/three/TrackballControls.js"></script>
+        <script src="js/three/ColladaLoader.js"></script>
+
         <script src="js/Detector.js"></script>
         <script src="js/Stats.js"></script>
         <script src='js/DAT.GUI.min.js'></script>
+        <script src="js/Tween.js"></script>
+        <script src='js/Colors.js'></script>
 
 		<script>
 
@@ -55,6 +60,8 @@
 
                 configRadius: 5.0,
                 showVector: true,
+                freeze: false,
+                speedFactor: 1.0,
                 configAxesScale: 0.1
 
             };
@@ -141,25 +148,25 @@
                 loader.load( 'meshes/arrow.dae', function colladaReady( collada )
                 {
                     sphere_vector = collada.scene;
-                    projection_x = THREE.SceneUtils.cloneObject(collada.scene);
-                    projection_y = THREE.SceneUtils.cloneObject(collada.scene);
-                    projection_z = THREE.SceneUtils.cloneObject(collada.scene);
+                    projection_x = sphere_vector.clone(); //THREE.SceneUtils.cloneObject(collada.scene);
+                    projection_y = sphere_vector.clone(); //THREE.SceneUtils.cloneObject(collada.scene);
+                    projection_z = sphere_vector.clone(); //THREE.SceneUtils.cloneObject(collada.scene);
 
                     sphere_vector.scale = new THREE.Vector3(2, 2, 5);
                     sphere_vector.lookAt( new THREE.Vector3(0,0,1));
                     scene.add(sphere_vector);
 
-                    projection_x = THREE.SceneUtils.cloneObject(collada.scene);
+                    projection_x = sphere_vector.clone(); //THREE.SceneUtils.cloneObject(collada.scene);
                     projection_x.scale = new THREE.Vector3(2, 2, 5);
                     projection_x.lookAt( new THREE.Vector3(1,0,0));
                     scene.add(projection_x);
 
-                    projection_y = THREE.SceneUtils.cloneObject(collada.scene);
+                    projection_y = sphere_vector.clone(); //THREE.SceneUtils.cloneObject(collada.scene);
                     projection_y.scale = new THREE.Vector3(2, 2, 5);
                     projection_y.lookAt( new THREE.Vector3(0,1,0));
                     scene.add(projection_y);
 
-                    projection_z = THREE.SceneUtils.cloneObject(collada.scene);
+                    projection_z = sphere_vector.clone(); //THREE.SceneUtils.cloneObject(collada.scene);
                     projection_z.scale = new THREE.Vector3(2, 2, 5);
                     projection_z.lookAt( new THREE.Vector3(0,0,1));
                     scene.add(projection_z);
@@ -184,7 +191,7 @@
 				var planeTesselated = new THREE.PlaneGeometry( 10, 10, 10, 10 );
 				var matWire = new THREE.MeshBasicMaterial( { color :0x110000, wireframe: true, wireframeLinewidth: 2 } );
 				var matSolid = new THREE.MeshBasicMaterial( { color :0x330000 } );
-				matSolid.color.setHSV( 0.1, 0.75, 1 );
+				// matSolid.color.setHSV( 0.1, 0.75, 1 );
 
 				//floor = new THREE.Mesh( planeSimple, matSolid );
 				//floor.position.y = -10;
@@ -215,6 +222,8 @@
 
                 window.addEventListener( 'resize', onWindowResize, false );
                 document.addEventListener( 'keydown', onKeyDown, false );
+                document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+
 
                 // GUI
 
@@ -230,6 +239,13 @@
                 gui.add( vectorConfig, 'showVector' ).onChange( function() {
                     for( var i = 0; i < sphere_vector.children.length; i++)
                         sphere_vector.children[i].visible = vectorConfig.showVector;
+
+                });
+                gui.add( vectorConfig, 'freeze' ).onChange( function() {
+
+                });
+                gui.add( vectorConfig, 'speedFactor', 0.1, 1.0 ).onChange( function() {
+                    controls.enabled = false;
 
                 });
 
@@ -271,6 +287,14 @@
 
             }
 
+            function onDocumentMouseMove( event ) {
+
+                //mouseX = ( event.clientX - windowHalfX );
+                //mouseY = ( event.clientY - windowHalfY );
+
+                controls.enabled = true;
+            }
+
 			function loop() {
 
 				requestAnimationFrame( loop, renderer.domElement );
@@ -283,21 +307,24 @@
                 controls.update();
                 camera.up.set(0, 1, 0);
                 //camera.lookAt(controls.target);
-
-                target_sphere.position.x = 3.0*Math.sin(2*Math.PI*elapsed/4.0);
-                target_sphere.position.z = 3.0*Math.cos(2*Math.PI*elapsed/4.0);
-                target_sphere.position.y = 2 + 2.0*Math.cos(2*Math.PI*elapsed/6.0);
-                if(sphere_vector)
+                if (!vectorConfig.freeze) 
                 {
-                    var length = new THREE.Vector3().sub(target_sphere.position, sphere_vector.position).length();
-                    sphere_vector.scale.z = length;
-                    sphere_vector.lookAt(target_sphere.position);
-                    projection_x.lookAt( new THREE.Vector3(target_sphere.position.x, 0, 0) );
-                    projection_x.scale.z = Math.abs(target_sphere.position.x);
-                    projection_y.lookAt( new THREE.Vector3(0, target_sphere.position.y, 0) );
-                    projection_y.scale.z = Math.abs(target_sphere.position.y);
-                    projection_z.lookAt( new THREE.Vector3(0, 0, target_sphere.position.z) );
-                    projection_z.scale.z = Math.abs(target_sphere.position.z);
+                    speed = vectorConfig.speedFactor;
+                    target_sphere.position.x = 3.0*Math.sin(2*Math.PI*speed*elapsed/4.0);
+                    target_sphere.position.z = 3.0*Math.cos(2*Math.PI*speed*elapsed/4.0);
+                    target_sphere.position.y = 2 + 2.0*Math.cos(2*Math.PI*speed*elapsed/6.0);
+                    if(sphere_vector)
+                    {
+                        var length = new THREE.Vector3().subVectors(target_sphere.position, sphere_vector.position).length();
+                        sphere_vector.scale.z = length;
+                        sphere_vector.lookAt(target_sphere.position);
+                        projection_x.lookAt( new THREE.Vector3(target_sphere.position.x, 0, 0) );
+                        projection_x.scale.z = Math.abs(target_sphere.position.x);
+                        projection_y.lookAt( new THREE.Vector3(0, target_sphere.position.y, 0) );
+                        projection_y.scale.z = Math.abs(target_sphere.position.y);
+                        projection_z.lookAt( new THREE.Vector3(0, 0, target_sphere.position.z) );
+                        projection_z.scale.z = Math.abs(target_sphere.position.z);
+                    }
                 }
 
 				renderer.render( scene, camera );
